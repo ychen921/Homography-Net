@@ -84,12 +84,12 @@ def main():
     """
     # Parse Command Line arguments
     Parser = argparse.ArgumentParser()
-    Parser.add_argument('--BasePath', default='/home/ychen921/733/Data', help='Base path of images, Default:/home/ychen921/733/Project1/Data/Train')
+    Parser.add_argument('--BasePath', default='/home/ychen921/733/Data', help='Base path of images, Default:/home/ychen921/733/Project1/Data')
     Parser.add_argument('--CheckPointPath', default='../Checkpoints/', help='Path to save Checkpoints, Default: ../Checkpoints/')
     Parser.add_argument('--ModelType', default='Unsup', help='Model type, Supervised or Unsupervised? Choose from Sup and Unsup, Default:Unsup')
     Parser.add_argument('--NumEpochs', type=int, default=50, help='Number of Epochs to Train for, Default:50')
     Parser.add_argument('--DivTrain', type=int, default=1, help='Factor to reduce Train data by per epoch, Default:1')
-    Parser.add_argument('--MiniBatchSize', type=int, default=8, help='Size of the MiniBatch to use, Default:128')
+    Parser.add_argument('--MiniBatchSize', type=int, default=8, help='Size of the MiniBatch to use, Default:8')
     Parser.add_argument('--LoadCheckPoint', type=int, default=0, help='Load Model from latest Checkpoint from CheckPointsPath?, Default:0')
     Parser.add_argument('--LogsPath', default='Logs/', help='Path to save Logs for Tensorboard, Default=Logs/')
 
@@ -119,10 +119,10 @@ def main():
                          tf.TensorSpec(shape=im_crop_shape,dtype=tf.float32)),
                         tf.TensorSpec(shape = (8,),dtype=tf.float32))
         model = HomographyNet()
-        model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3),
-              loss=custom_loss,)
+        model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3), loss=custom_loss,)
         checkpoint_filepath = './chkpt_weight/Supervised/'
         checkpoint_path = os.path.join(checkpoint_filepath, "cp_{epoch:04d}.ckpt")
+        loss_type = "val_loss"
 
     else:
         mode = "unsupervised_with_h4pt"
@@ -138,9 +138,10 @@ def main():
                      tf.TensorSpec(shape=(8,),dtype=tf.float32))
                     )
         model = UnsupHomographyNet(BatchSize=MiniBatchSize)
-        model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3, clipvalue=0.01),run_eagerly=True)
+        model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3, clipvalue=0.01),run_eagerly=False)
         checkpoint_filepath = './chkpt_weight/Unsupervised/'
         checkpoint_path = os.path.join(checkpoint_filepath, "cp_{epoch:04d}.ckpt")
+        loss_type = "val_val_loss"
 
     TrainDataLoader = DataGenerator(BasePath+'/Train', mode=mode)
     ValidDataLoader = DataGenerator(BasePath+'/Val', mode=mode)
@@ -184,7 +185,7 @@ def main():
 
 
     plt.plot(history.history['loss'])
-    plt.plot(history.history["val_loss"])
+    plt.plot(history.history[loss_type])
     plt.legend(["train","validation"])
     plt.xlabel('Epoch')
     plt.ylabel('Loss')

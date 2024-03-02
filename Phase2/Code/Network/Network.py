@@ -16,7 +16,7 @@ import numpy as np
 from Misc.TFSpatialTransformer import transformer
 import tensorflow as tf
 from keras.applications.vgg19 import VGG19, preprocess_input
-from Misc.tensorDLT import TensorDLT
+from Misc.tensor_dlt import TensorDLT
 from Misc.spatial_transformer import spatial_transformer_network
 
 # Don't generate pyc codes
@@ -103,9 +103,7 @@ class UnsupHomographyNet(tf.keras.Model):
         self.rho = 32
         self.BatchSize = BatchSize
 
-        self.HomographyNet = HomographyNet()
-        # self.TensorDLT = TensorDLT()
-        # self.STN = spatial_transformer_network()
+        self.homography_net = HomographyNet(num_blocks=3)
 
         self.loss_tracker = tf.keras.metrics.MeanAbsoluteError(name='loss')
         self.metric_h4pt = tf.keras.metrics.MeanAbsoluteError(name='mae_h4pt')
@@ -116,11 +114,12 @@ class UnsupHomographyNet(tf.keras.Model):
 
     def call(self, inputs):
         p1, p2, im_ori, upper_left_corner = inputs
-        # print(p1.shape, p2.shape, im_ori.shape, upper_left_corner.shape)
-        h4pt_batch = self.HomographyNet((p1,p2))
+        h4pt_batch = self.homography_net([p1,p2])
+   
         h4pt_batch = tf.clip_by_value(h4pt_batch, 
                                       clip_value_min=-self.rho,
                                       clip_value_max=self.rho)
+        
         homography = TensorDLT(h4pt_batch=h4pt_batch, 
                                upper_left_corner=upper_left_corner, 
                                batch_size=self.BatchSize)
@@ -131,6 +130,7 @@ class UnsupHomographyNet(tf.keras.Model):
     
     def train_step(self, data):
         inputs, targets = data
+
         with tf.GradientTape() as tape:
             pred = self(inputs, )
             loss = tf.reduce_mean(tf.keras.losses.mean_absolute_error(targets[0], pred[0]))
@@ -154,6 +154,15 @@ class UnsupHomographyNet(tf.keras.Model):
             self.metric_h4pt.update_state(targets[-1], pred[-1])
 
         return {"loss": self.loss_tracker.result(), "mae_h4pt": self.metric_h4pt.result()}
+    
+    def test_step(self, data):
+        data_in, data_out = data
+        model_out = self(data_in, training=False)
+
+        self.loss_tracker_val.update_state(data_out[0], model_out[0])
+        self.metric_h4pt_val.update_state(data_out[-1], model_out[-1])
+
+        return {"val_loss": self.loss_tracker_val.result(), "val_mae_h4pt": self.metric_h4pt_val.result()}
     
     @property
     def metrics(self):

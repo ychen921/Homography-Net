@@ -137,7 +137,7 @@ class DataGenerator:
         elif self.mode == "unsupervised_with_h4pt":
             # under this mode, output the 4 point representation
             # as well, so we can calculate metric 
-            input = (p1/255.0,p2/255.0,im_ori,upper_left_coord)
+            input = (p1,p2,im_ori,upper_left_coord)
             output = (im_warp, h4pt)
         elif self.mode == "unsupervised":
             input = (p1,p2,im_ori,upper_left_coord)

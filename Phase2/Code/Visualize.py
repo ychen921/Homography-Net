@@ -16,22 +16,24 @@ def Mean_Corner_error(corners1, corners2):
 def main():
     Parser = argparse.ArgumentParser()
     Parser.add_argument('--ModelType', default='Unsup', help='Model type, Supervised or Unsupervised? Choose from Sup and Unsup, Default:Unsup')
+    Parser.add_argument('--BasePath', default='/home/ychen921/733/Data', help='Base path of images, Default:/home/ychen921/733/Project1/Data')
+    Parser.add_argument('--Set', default='/Train', help='Base path of images, Default:/Train')
     Args = Parser.parse_args()
     ModelType = Args.ModelType
-    
-    if ModelType == "supervised":
+    BasePath = Args.BasePath
+
+    if ModelType == "Sup":
         model = HomographyNet()
-        model.load_weights('./chkpt_weight/checkpoint_mdl_v2_rho32')
+        model.load_weights('./chkpt_weight/Supervised/cp_0050.ckpt')
 
     else:
         model = UnsupHomographyNet()
 
-
-
     resize_shape = (320,240)
     rho = 32
 
-    test_path = "/home/ychen921/733/Data/Test"
+    
+    test_path = BasePath+"/Val"
     errors = []
     for i in os.listdir(test_path)[0:3]:
         print(test_path+'/'+i)
