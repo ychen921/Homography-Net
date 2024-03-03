@@ -8,9 +8,14 @@ from PIL import Image
 import matplotlib.pyplot as plt
 
 class DataGenerator:
-    def __init__(self, path, crop_size=128, rho=32, mode='supervised'):
+    def __init__(self,
+                 path,
+                 crop_size=128,
+                 rho=32,
+                 resize_size=(320,240),
+                 mode='supervised'):
         self.crop_size = crop_size
-        self.resize_shape = (320,240)
+        self.resize_shape = resize_size
         self.rho = rho
         self.mode = mode
 
@@ -67,12 +72,8 @@ class DataGenerator:
         upper_left_h = np.random.randint(low=self.rho,high=h-self.rho-ch)
         upper_left_w = np.random.randint(low=self.rho,high=w-self.rho-cw)
         
-        # Coordinates of Patch A
-        # C_A_4pts = np.array([[upper_left_h, upper_left_w],          # upper left
-        #                      [upper_left_h+ch-1, upper_left_w],     # bottom left
-        #                      [upper_left_h+ch-1, upper_left_w+cw-1],# bottom right
-        #                      [upper_left_h, upper_left_w+cw-1]])    # upper right
-        upper_left_coord = tf.convert_to_tensor(np.array([upper_left_h,upper_left_w]))
+        upper_left_coord = tf.convert_to_tensor(np.array([upper_left_h,
+                                                          upper_left_w]))
 
         corner_pts = np.array([[0,0],[ch-1,0],[ch-1,cw-1],[0,cw-1]]) + \
                     np.array([upper_left_h, upper_left_w])[np.newaxis,:]
@@ -156,7 +157,8 @@ class DataGenerator:
                 shuffle(self.im_list)
             im_path = self.im_list[self.ifile]
             self.ifile = (self.ifile+1)%self.nimg
-            input_data, output_data = self.gen_img_and_homography(im_path, **kwds)
+            input_data, output_data = self.gen_img_and_homography(im_path,
+                                                                  **kwds)
             if input_data is None:
                 continue
             yield input_data, output_data
