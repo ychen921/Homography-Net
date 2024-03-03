@@ -50,8 +50,8 @@ def main(NumEpochs,
         batch_size = 8
         monitor_name = "mae_loss"
     checkpoint_path = f"./chkpt/mdl_{mode}"
+
     # set up tensorflow database
-        
     train_path = BasePath+'/Train'
     val_path = BasePath+'/Val'
 
@@ -66,7 +66,7 @@ def main(NumEpochs,
                       metrics=[keras.losses.MeanAbsoluteError(name="mae"),
                                metric_dist])
     else:
-        model.compile(optimizer=keras.optimizers.Adam(learning_rate=1e-3    ,
+        model.compile(optimizer=keras.optimizers.Adam(learning_rate=1e-3,
                                                       clipvalue=0.01),
                     run_eagerly=True)
 
