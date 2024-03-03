@@ -71,7 +71,6 @@ def main(NumEpochs,
                     run_eagerly=True)
 
     steps_per_epoch = int(np.floor(5000/batch_size))
-
     # reduce learning rate when performance plateau
     reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor=monitor_name,
                                                   factor=0.2,
