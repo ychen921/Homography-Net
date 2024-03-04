@@ -1,13 +1,13 @@
 
 """
-CMSC733 Spring 2019: Classical and Deep Learning Approaches for
+CMSC733 Spring 2023: Classical and Deep Learning Approaches for
 Geometric Computer Vision
 Project 1: MyAutoPano: Phase 2 Starter Code
 
 
 Author(s):
-Nitin J. Sanket (nitinsan@terpmail.umd.edu)
-PhD Candidate in Computer Science,
+Yi-Chung Chen (ychen921@umd.edu)
+Master in Robotics,
 University of Maryland, College Park
 """
 

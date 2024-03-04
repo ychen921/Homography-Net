@@ -344,13 +344,9 @@ def stitch(img1, img2, H):
     return images_stitched
 
 def CropImage(image):
-    """Modified https://github.com/h-gokul/AutoPano/blob/master/Phase1/Code/Wrapper.py#L458"""
     img_gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
     
     _, binary_mask = cv2.threshold(img_gray, 5, 255, cv2.THRESH_BINARY)
-    kernel = np.ones((5,5), np.uint8)
-    binary_mask = cv2.morphologyEx(binary_mask, cv2.MORPH_CLOSE, kernel)
-    binary_mask = cv2.morphologyEx(binary_mask, cv2.MORPH_OPEN, kernel)
     
     contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     x, y, w, h = cv2.boundingRect(contours[len(contours)-1])
