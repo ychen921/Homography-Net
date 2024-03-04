@@ -18,22 +18,14 @@ University of Maryland, College Park
 # skimage, do (apt install python-skimage)
 
 import tensorflow as tf
-import cv2
-import os
+import keras
 import sys
-import glob
-import Misc.ImageUtils as iu
-import random
-from skimage import data, exposure, img_as_float
+import os
 import matplotlib.pyplot as plt
-from Network.Network import HomographyModel
-from Misc.MiscUtils import *
+from Network.Network import get_model, metric_dist
+from Misc.tf_dataset import get_tf_dataset
 import numpy as np
-import time
 import argparse
-import shutil
-from StringIO import StringIO
-import string
 import math as m
 from tqdm import tqdm
 from Misc.TFSpatialTransformer import *
@@ -42,110 +34,49 @@ from Misc.TFSpatialTransformer import *
 # Don't generate pyc codes
 sys.dont_write_bytecode = True
 
-def SetupAll(BasePath):
-    """
-    Inputs: 
-    BasePath - Path to images
-    Outputs:
-    ImageSize - Size of the Image
-    DataPath - Paths of all images where testing will be run on
-    """   
-    # Image Input Shape
-    ImageSize = [32, 32, 3]
-    DataPath = []
-    NumImages = len(glob.glob(BasePath+'*.jpg'))
-    SkipFactor = 1
-    for count in range(1,NumImages+1,SkipFactor):
-        DataPath.append(BasePath + str(count) + '.jpg')
+def Mean_Corner_error(corners1, corners2):
+    assert corners1.shape == corners2.shape
+    distances = np.sum(np.abs(corners1 - corners2), axis=1)
+    mean_error = np.mean(distances)
+    return mean_error
 
-    return ImageSize, DataPath
-    
-def ReadImages(ImageSize, DataPath):
-    """
-    Inputs: 
-    ImageSize - Size of the Image
-    DataPath - Paths of all images where testing will be run on
-    Outputs:
-    I1Combined - I1 image after any standardization and/or cropping/resizing to ImageSize
-    I1 - Original I1 image for visualization purposes only
-    """
-    
-    ImageName = DataPath
-    
-    I1 = cv2.imread(ImageName)
-    
-    if(I1 is None):
-        # OpenCV returns empty list if image is not read! 
-        print('ERROR: Image I1 cannot be read')
-        sys.exit()
+
+def calculate_metric(ds, nimg, model, mode, BatchSize=8):
+    corner_dist = []
+    # go through all test images
+
+    for i in tqdm(range(int(nimg/BatchSize))):
+        # retrieve a sample batch
+        sample_input, sample_output = next(iter(ds))
+
+        if mode == "supervised":
+            im_crop1, im_crop2 = sample_input
+            h4pt = sample_output
+            h4pt = h4pt.numpy().reshape((-1,4,2))
+
+        elif mode == "unsupervised":        
+            # im_crop1, im_crop2, _, _ = sample_input
+            _, h4pt = sample_output
+            h4pt = h4pt.numpy().reshape((-1,4,2))
+
+        if mode == "supervised":
+            h4pt_pred = model([im_crop1,im_crop2])
+            h4pt_pred = (np.round(h4pt_pred.numpy())).reshape((-1,4,2))
+
+        elif mode == "unsupervised":
+            model_out_us = model(sample_input)
+            im_warp_pred_us, h4pt_pred = model_out_us
+            im_warp_pred_us = np.round(im_warp_pred_us.numpy()*255)
+            h4pt_pred = np.round(h4pt_pred.numpy()).reshape((-1,4,2))
+
+        for b in range(BatchSize):
+            corner_dist.append(Mean_Corner_error(np.squeeze(h4pt[b,:,:]), np.squeeze(h4pt_pred[b,:,:])))
         
-    ##########################################################################
-    # Add any standardization or cropping/resizing if used in Training here!
-    ##########################################################################
+    corner_dist = np.array(corner_dist)
 
-    I1S = iu.StandardizeInputs(np.float32(I1))
-
-    I1Combined = np.expand_dims(I1S, axis=0)
-
-    return I1Combined, I1
-                
-
-def TestOperation(ImgPH, ImageSize, ModelPath, DataPath, LabelsPathPred):
-    """
-    Inputs: 
-    ImgPH is the Input Image placeholder
-    ImageSize is the size of the image
-    ModelPath - Path to load trained model from
-    DataPath - Paths of all images where testing will be run on
-    LabelsPathPred - Path to save predictions
-    Outputs:
-    Predictions written to ./TxtFiles/PredOut.txt
-    """
-    Length = ImageSize[0]
-    # Predict output with forward pass, MiniBatchSize for Test is 1
-    _, prSoftMaxS = CIFAR10Model(ImgPH, ImageSize, 1)
-
-    # Setup Saver
-    Saver = tf.train.Saver()
-
-    
-    with tf.Session() as sess:
-        Saver.restore(sess, ModelPath)
-        print('Number of parameters in this model are %d ' % np.sum([np.prod(v.get_shape().as_list()) for v in tf.trainable_variables()]))
-        
-        OutSaveT = open(LabelsPathPred, 'w')
-
-        for count in tqdm(range(np.size(DataPath))):            
-            DataPathNow = DataPath[count]
-            Img, ImgOrg = ReadImages(ImageSize, DataPathNow)
-            FeedDict = {ImgPH: Img}
-            PredT = np.argmax(sess.run(prSoftMaxS, FeedDict))
-
-            OutSaveT.write(str(PredT)+'\n')
-            
-        OutSaveT.close()
+    return corner_dist
 
 
-def ReadLabels(LabelsPathTest, LabelsPathPred):
-    if(not (os.path.isfile(LabelsPathTest))):
-        print('ERROR: Test Labels do not exist in '+LabelsPathTest)
-        sys.exit()
-    else:
-        LabelTest = open(LabelsPathTest, 'r')
-        LabelTest = LabelTest.read()
-        LabelTest = map(float, LabelTest.split())
-
-    if(not (os.path.isfile(LabelsPathPred))):
-        print('ERROR: Pred Labels do not exist in '+LabelsPathPred)
-        sys.exit()
-    else:
-        LabelPred = open(LabelsPathPred, 'r')
-        LabelPred = LabelPred.read()
-        LabelPred = map(float, LabelPred.split())
-        
-    return LabelTest, LabelPred
-
-        
 def main():
     """
     Inputs: 
@@ -156,27 +87,54 @@ def main():
 
     # Parse Command Line arguments
     Parser = argparse.ArgumentParser()
-    Parser.add_argument('--ModelPath', dest='ModelPath', default='/home/chahatdeep/Downloads/Checkpoints/144model.ckpt', help='Path to load latest model from, Default:ModelPath')
-    Parser.add_argument('--BasePath', dest='BasePath', default='/home/chahatdeep/Downloads/aa/CMSC733HW0/CIFAR10/Test/', help='Path to load images from, Default:BasePath')
-    Parser.add_argument('--LabelsPath', dest='LabelsPath', default='./TxtFiles/LabelsTest.txt', help='Path of labels file, Default:./TxtFiles/LabelsTest.txt')
+    Parser.add_argument('--ModelPath', dest='ModelPath', default='/home/ychen921/733/MyAutoPano/Phase2/Code/chkpt_weight/Supervised/cp_0050.ckpt', help='Path to load all check points from, Default:/home/ychen921/733/MyAutoPano/Phase2/Code/chkpt_weight/Supervised/cp_0100.ckpt')
+    Parser.add_argument('--BasePath', dest='BasePath', default='/home/ychen921/733/Data/Test', help='Path to load images from, Default:/home/ychen921/733/Data/Test')
+    Parser.add_argument('--ModelType', default='Sup', help='Model type, Supervised or Unsupervised? Choose from Sup and Unsup, Default:Sup')
+    Parser.add_argument('--MiniBatchSize', type=int, default=8, help='Size of the MiniBatch to use, Default:8')
+    Parser.add_argument('--NumEpochs', type=int, default=50, help='Number of Epochs to Train for, Default:50')
+
     Args = Parser.parse_args()
     ModelPath = Args.ModelPath
     BasePath = Args.BasePath
-    LabelsPath = Args.LabelsPath
+    ModelType = Args.ModelType
+    MiniBatchSize = Args.MiniBatchSize
+    NumEpochs = Args.NumEpochs
 
-    # Setup all needed parameters including file reading
-    ImageSize, DataPath = SetupAll(BasePath)
+    test_path = BasePath
+    
+    # Select model and model configuration
+    if ModelType == "Sup":
+        mode = "supervised"
+    else:
+        mode = "unsupervised"
 
-    # Define PlaceHolder variables for Input and Predicted output
-    ImgPH = tf.placeholder('float', shape=(1, ImageSize[0], ImageSize[1], 3))
-    LabelsPathPred = './TxtFiles/PredOut.txt' # Path to save predicted labels
 
-    TestOperation(ImgPH, ImageSize, ModelPath, DataPath, LabelsPathPred)
+    test_ds = get_tf_dataset(path=test_path, batch_size=MiniBatchSize, mode=mode)
+    model = get_model(mode=mode)
+    model.load_weights(ModelPath).expect_partial()
 
-    # Plot Confusion Matrix
-    LabelsTrue, LabelsPred = ReadLabels(LabelsPath, LabelsPathPred)
-    ConfusionMatrix(LabelsTrue, LabelsPred)
-     
+    if mode == "supervised":
+        train_loss_name = 'loss'
+        val_loss_name = "val_loss"
+        model.compile(optimizer=keras.optimizers.Adam(learning_rate=1e-3),
+                        loss=keras.losses.MeanSquaredError(name="mse_loss"),
+                        metrics=[keras.losses.MeanAbsoluteError(name="mae"),
+                                metric_dist])
+    else:
+        train_loss_name = 'mae_loss'
+        val_loss_name = "val_val_mae_loss"
+        model.compile(optimizer=keras.optimizers.Adam(learning_rate=1e-3,
+                                                      clipvalue=0.01),
+                                                      run_eagerly=True)
+
+
+    corners_err = calculate_metric(test_ds, nimg=1000, model=model, mode=mode)
+ 
+
+    print("#-------------------------------------#")
+    print(f"Model error: mean {np.mean(corners_err):.3f}, "f"std {np.std(corners_err):.3f}")
+    print("#-------------------------------------#")
+
 if __name__ == '__main__':
     main()
  

@@ -17,22 +17,16 @@ University of Maryland, College Park
 # termcolor, do (pip install termcolor)
 
 import tensorflow as tf
-import cv2
+import keras
 import sys
 import os
-import glob
-import random
 from skimage import data, exposure, img_as_float
 import matplotlib.pyplot as plt
-from Network.Network import *
-from Misc.MiscUtils import *
-from Misc.DataUtils import *
+from Network.Network import get_model, metric_dist
 from Misc.DataGenerator import DataGenerator
+from Misc.tf_dataset import get_tf_dataset
 import numpy as np
-import time
 import argparse
-import shutil
-import string
 from termcolor import colored, cprint
 import math as m
 from tqdm import tqdm
@@ -44,15 +38,14 @@ sys.dont_write_bytecode = True
 print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 
 
-def PrettyPrint(NumEpochs, DivTrain, MiniBatchSize, NumTrainSamples, LatestFile):
+def PrettyPrint(NumEpochs, MiniBatchSize, NumTrainSamples=5000):
     """
     Prints all stats with all arguments
     """
     print('Number of Epochs Training will run for ' + str(NumEpochs))
     print('Mini Batch Size ' + str(MiniBatchSize))
     print('Number of Training Images ' + str(NumTrainSamples))
-    if LatestFile is not None:
-        print('Loading latest checkpoint with the name ' + LatestFile)              
+                 
   
             
 def config_ds(ds, MiniBatchSize):
@@ -88,24 +81,17 @@ def main():
     Parser.add_argument('--CheckPointPath', default='../Checkpoints/', help='Path to save Checkpoints, Default: ../Checkpoints/')
     Parser.add_argument('--ModelType', default='Unsup', help='Model type, Supervised or Unsupervised? Choose from Sup and Unsup, Default:Unsup')
     Parser.add_argument('--NumEpochs', type=int, default=50, help='Number of Epochs to Train for, Default:50')
-    Parser.add_argument('--DivTrain', type=int, default=1, help='Factor to reduce Train data by per epoch, Default:1')
     Parser.add_argument('--MiniBatchSize', type=int, default=8, help='Size of the MiniBatch to use, Default:8')
     Parser.add_argument('--LoadCheckPoint', type=int, default=0, help='Load Model from latest Checkpoint from CheckPointsPath?, Default:0')
-    Parser.add_argument('--LogsPath', default='Logs/', help='Path to save Logs for Tensorboard, Default=Logs/')
 
     Args = Parser.parse_args()
     NumEpochs = Args.NumEpochs
     BasePath = Args.BasePath
-    DivTrain = float(Args.DivTrain)
     MiniBatchSize = Args.MiniBatchSize
-    LoadCheckPoint = Args.LoadCheckPoint
     CheckPointPath = Args.CheckPointPath
-    LogsPath = Args.LogsPath
     ModelType = Args.ModelType
     
-    
-    if not os.path.exists(CheckPointPath):
-        os.mkdir(CheckPointPath)
+    PrettyPrint(NumEpochs, MiniBatchSize)
 
     if not os.path.exists("../Results"):
         os.mkdir("../Results")
@@ -115,48 +101,46 @@ def main():
     # Select model and model configuration
     if ModelType == "Sup":
         mode = "supervised"
-        output_signature = ((tf.TensorSpec(shape=im_crop_shape,dtype=tf.float32), 
-                         tf.TensorSpec(shape=im_crop_shape,dtype=tf.float32)),
-                        tf.TensorSpec(shape = (8,),dtype=tf.float32))
-        model = HomographyNet()
-        model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3), loss=custom_loss,)
+        monitor_name = "mse_loss"
         checkpoint_filepath = './chkpt_weight/Supervised/'
         checkpoint_path = os.path.join(checkpoint_filepath, "cp_{epoch:04d}.ckpt")
-        loss_type = "val_loss"
+        y_min, y_max = 100, 290
 
     else:
-        mode = "unsupervised_with_h4pt"
-        im_ori_shape = (240, 320, 3)
-        output_signature=(  #input
-                    (tf.TensorSpec(shape=im_crop_shape,dtype=tf.float32),
-                    tf.TensorSpec(shape=im_crop_shape,dtype=tf.float32),
-                    tf.TensorSpec(shape=im_ori_shape,dtype=tf.float32),
-                    tf.TensorSpec(shape=(2,),dtype=tf.float32),
-                    ),
-                     # output
-                    (tf.TensorSpec(shape=im_ori_shape,dtype=tf.float32), 
-                     tf.TensorSpec(shape=(8,),dtype=tf.float32))
-                    )
-        model = UnsupHomographyNet(BatchSize=MiniBatchSize)
-        model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3, clipvalue=0.01),run_eagerly=False)
+        mode = "unsupervised"
+        monitor_name = "mae_loss"
         checkpoint_filepath = './chkpt_weight/Unsupervised/'
         checkpoint_path = os.path.join(checkpoint_filepath, "cp_{epoch:04d}.ckpt")
-        loss_type = "val_val_loss"
+        y_min, y_max = 0.1, 0.25
 
-    TrainDataLoader = DataGenerator(BasePath+'/Train', mode=mode)
-    ValidDataLoader = DataGenerator(BasePath+'/Val', mode=mode)
+    train_path = BasePath+'/Train'
+    val_path = BasePath+'/Val'
     
     # Data Loader
-    train_ds = tf.data.Dataset.from_generator(TrainDataLoader, output_signature=output_signature)
-    val_ds = tf.data.Dataset.from_generator(ValidDataLoader, output_signature=output_signature)
+    train_ds = get_tf_dataset(path=train_path, batch_size=MiniBatchSize, mode=mode)
+    val_ds = get_tf_dataset(path=val_path, batch_size=MiniBatchSize, mode=mode)
 
-    train_ds = config_ds(train_ds, MiniBatchSize)
-    val_ds = config_ds(val_ds, MiniBatchSize)
+    model = get_model(mode=mode)
+
+    if mode == "supervised":
+        train_loss_name = 'loss'
+        val_loss_name = "val_loss"
+        model.compile(optimizer=keras.optimizers.Adam(learning_rate=1e-3),
+                      loss=keras.losses.MeanSquaredError(name="mse_loss"),
+                      metrics=[keras.losses.MeanAbsoluteError(name="mae"),
+                               metric_dist])
+    else:
+        train_loss_name = 'mae_loss'
+        val_loss_name = "val_val_mae_loss"
+        model.compile(optimizer=keras.optimizers.Adam(learning_rate=1e-3,
+                                                      clipvalue=0.01),
+                                                      run_eagerly=True)
+
 
     steps_per_epoch = int(np.floor(5000/MiniBatchSize))
 
     # reduce learning rate when performance plateau
-    reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='loss',
+    reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor=monitor_name,
                                                     factor=0.2,
                                                     patience=3,
                                                     min_lr=1e-6,
@@ -166,7 +150,7 @@ def main():
     checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
                                                     filepath=checkpoint_path,
                                                     save_weights_only=True,
-                                                    monitor='loss',
+                                                    monitor=monitor_name,
                                                     mode='min',
                                                     save_freq='epoch',
                                                     #save_best_only=True,
@@ -181,11 +165,10 @@ def main():
                         verbose=True,
                         callbacks=[reduce_lr, checkpoint_callback])
        
-        
 
-
-    plt.plot(history.history['loss'])
-    plt.plot(history.history[loss_type])
+    plt.plot(history.history[train_loss_name])
+    plt.plot(history.history[val_loss_name])
+    plt.ylim(y_min, y_max) 
     plt.legend(["train","validation"])
     plt.xlabel('Epoch')
     plt.ylabel('Loss')

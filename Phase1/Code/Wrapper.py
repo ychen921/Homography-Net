@@ -15,7 +15,6 @@ import math
 import argparse
 import cv2
 import os
-from Utils.Blend import Blender
 
 
 def DrawCorners(img, corners, SaveName):
@@ -96,13 +95,6 @@ def ANMS(image, corners):
     sorted_r = r[sorted_indices].astype('uint8')
     BestN = sorted_r[:NumCornerBest, 1:3]
     
-    # Plot image with ANMS corners
-    # for i in range(NumCornerBest):
-    #     x, y = corners[i,0], corners[i,1]
-    #     cv2.circle(image, (x, y), 3, (255, 0, 0), -1)
-    # plt.imshow(image)
-    # plt.axis('off')
-    # plt.savefig(SavePath+'/ANMS_'+ filename, bbox_inches='tight')
     
     return corners[:NumCornerBest, :] 
 
@@ -141,6 +133,18 @@ def FindDescriptor(image, corners):
             Descriptors.append(desc)
             
     return GoodCorners, Descriptors
+
+def PlotDescriptors(desc, SavePath):
+    num_rows=2
+    num_cols=10
+    figsize=(10, 2)
+
+    fig, axes = plt.subplots(num_rows, num_cols, figsize=figsize)
+    for i, ax in enumerate(axes.flat):
+        ax.imshow(desc[i].reshape(8,8), cmap='gray')
+        ax.axis('off')
+    plt.savefig(SavePath, bbox_inches='tight')
+
 
 def FeatureMatch(corners1, corners2, des1, des2):
     """Feature Matching
@@ -340,6 +344,7 @@ def stitch(img1, img2, H):
     return images_stitched
 
 def CropImage(image):
+    """Modified https://github.com/h-gokul/AutoPano/blob/master/Phase1/Code/Wrapper.py#L458"""
     img_gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
     
     _, binary_mask = cv2.threshold(img_gray, 5, 255, cv2.THRESH_BINARY)
@@ -383,9 +388,10 @@ def Stitch1(images, NumFeatures, SavePath, saveflag=1):
             kps1, kps2 = FeatureMatch(corners1, corners2, des1, des2)
             if i == 1 and saveflag == 1:
                 DrawMatches(img1, img2, kps1, kps2, SaveName=SavePath+'/NaiveMatch_'+str(count)+'.png')
-            
+                PlotDescriptors(desc=des1, SavePath=SavePath+'/Desc_'+str(count)+'.png')
+
             print(len(kps1))
-            if len(kps1) < 30:
+            if len(kps1) < 20:
                 print('Passing.... Two images may not overlap')
                 continue
             
@@ -438,9 +444,10 @@ def Stitch2(images, NumFeatures, layer, SavePath):
         kps1, kps2 = FeatureMatch(corners1, corners2, des1, des2)
         if layer == 0:
             DrawMatches(img1, img2, kps1, kps2, SaveName=SavePath+'/NaiveMatch_'+str(count)+'.png')
+            # PlotDescriptors(desc=des1, SavePath=SavePath+'/Desc_'+str(count)+'.png')
         
         
-        if len(kps1) < 30:
+        if len(kps1) < 20:
             print('Passing.... Two images may not overlap')
             continue
             
@@ -484,8 +491,9 @@ def Stitch2(images, NumFeatures, layer, SavePath):
         
         if layer == 0:
             DrawMatches(img1, img2, kps1, kps2, SaveName=SavePath+'/NaiveMatch_'+str(count)+'.png')
+            # PlotDescriptors(desc=des1, SavePath=SavePath+'/Desc_'+str(count)+'.png')
         
-        if len(kps1) < 30:
+        if len(kps1) < 20:
             print('Passing.... Two images may not overlap')
             continue
             
@@ -507,7 +515,7 @@ def Stitch2(images, NumFeatures, layer, SavePath):
  
 def main():
     Parser = argparse.ArgumentParser()
-    Parser.add_argument('--BasePath', default='C:/Users/steve/Desktop/733/Project1/MyAutoPano/Phase1', help='Path for saving the set of images, Default:C:/Users/steve/Desktop/733/Project1/MyAutoPano/Phase1')
+    Parser.add_argument('--BasePath', default='/home/ychen921/733/MyAutoPano/Phase1', help='Path for saving the set of images, Default:/home/ychen921/733/MyAutoPano/Phase1')
     Parser.add_argument('--Dataset', default='Train', help='Path for saving the set of images, Default:Train')
     Parser.add_argument('--Set', default='Set1', help='Path for saving the set of images, Default:Set1')
     Parser.add_argument('--NumFeatures', default=1500, help='Number of best features to extract from each image, Default:100')
