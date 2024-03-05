@@ -2,7 +2,7 @@
 This project was completed by Yi-Chung Chen, Ji Liu, and Shreyas Acharya. We developed two deep learning approaches for estimating tomography: supervised and unsupervised. We have achieved the average corner error (EPE) of 5.159 pixels for our supervised model, and 10.213 pixels for our unsupervised model. For more details, please look at the `report.pdf` and [project website](https://cmsc733.github.io/2022/proj/p1/) 
 
 ## Data
-
+The images used for training, validation and testing are a subset of the COCO dataset. You can find the training data at [here](https://drive.google.com/file/d/1bb1Lhct-aayTflfSFFHWS7FBi1Al9yRD/view?usp=sharing)
 ## Architecture
 ![](./figure/architecture.png)
 
