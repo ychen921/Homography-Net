@@ -1,5 +1,5 @@
 # Homography Net
-This project was completed by Yi-Chung Chen, Ji Liu, and Shreyas Acharya. In phase 1, we implement panorama stitching from scratch including corner detection, Adaptive Non-Maximal Suppression (ANMS), feature descriptor, feature matching, and RANSAC homography. In phase 2, we developed two deep learning approaches for estimating tomography: supervised and unsupervised. We have achieved the average corner error (EPE) of 5.159 pixels for our supervised model, and 15.834 pixels for our unsupervised model. For more details, please look at the `report.pdf` and [project website](https://cmsc733.github.io/2022/proj/p1/) 
+This project was completed by Yi-Chung Chen, Ji Liu, and Shreyas Acharya. We developed two deep learning approaches for estimating tomography: supervised and unsupervised. We have achieved the average corner error (EPE) of 5.159 pixels for our supervised model, and 10.213 pixels for our unsupervised model. For more details, please look at the `report.pdf` and [project website](https://cmsc733.github.io/2022/proj/p1/) 
 
 ## Data
 
@@ -31,7 +31,13 @@ python3 ./visualization.py --SupCheckPointPath {directory to supervised model ch
 
 ## Visualization & Performance
 
+![](./figures/visualization.png)
 
+
+| Model       | Training L2     | Validation L2    |  Test L2        |
+| :---        |    :----:       |     :----:       |    :----:       |
+| Supervised  | 5.15 $\pm$ 2.45 | 5.17 $\pm$ 2.44  | 5.23 $\pm$ 2.62 |
+| Unsupervised| 10.20 $\pm$ 4.74| 9.99 $\pm$ 4.92  | 10.21 $\pm$ 4.85|
 
 ## Reference
 1. DeTone, Daniel, Tomasz Malisiewicz, and Andrew Rabinovich. "Deep image homography estimation." arXiv preprint arXiv:1606.03798 (2016).
