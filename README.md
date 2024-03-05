@@ -1,10 +1,22 @@
 # Homography Net
-This project was completed by Yi-Chung Chen, Ji Liu, and Shreyas Acharya. We developed two deep learning approaches for estimating tomography: supervised and unsupervised. We have achieved the average corner error (EPE) of 5.159 pixels for our supervised model, and 10.213 pixels for our unsupervised model. For more details, please look at the `report.pdf` and [project website](https://cmsc733.github.io/2022/proj/p1/) 
+This project was completed by Yi-Chung Chen, Ji Liu, and Shreyas Acharya. We developed two deep learning approaches for estimating homography: supervised and unsupervised models. We have achieved the average corner error (EPE) of 5.159 pixels for our supervised model, and 10.213 pixels for our unsupervised model. For more details, please look at the `report.pdf` and [project website](https://cmsc733.github.io/2022/proj/p1/) 
 
 ## Data
-The images used for training, validation and testing are a subset of the COCO dataset. You can find the training data at [here](https://drive.google.com/file/d/1bb1Lhct-aayTflfSFFHWS7FBi1Al9yRD/view?usp=sharing)
+The images used for training, validation and testing are a subset of the COCO dataset. You can find the training data at [here](https://drive.google.com/file/d/1bb1Lhct-aayTflfSFFHWS7FBi1Al9yRD/view?usp=sharing).
+
+![](./figure/illustration.png)
+
+The figure above shows the generated dataset. In the left image, the area highlighted in blue is created by randomly shifting four corners of the yellow region. The two patches in the middle are produced by the homography, which maps from the blue region to the yellow region. The network receives these two patches as input, and its output predicts the four corners of the blue zone. The true homography matrix can then be reconstruct using the four corners.
+
 ## Architecture
-![](./figure/architecture.png)
+| ![](./figure/architecture.png)| 
+|:--:| 
+| *Architecture* |
+
+The figure above show our architecture of the model. We use pre-trained VGG-19 to encode 2 patches of images, They are related by a homography produced by randomly perturbing the corner coordinates. Then concatenate the VGG backbone outputs and pass through 7 inception blocks, to extract spatial information. Last flatten the feature map and pass to fully-connected layers and produce the 1 by 8 vector which is an predicted x and y coordinate the corners.
+
+The right image shows an example of output from the network, which predicts the actual corners with high accuracy.
+
 
 ## Usage
 ### Train
