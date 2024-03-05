@@ -31,7 +31,7 @@ python3 ./visualization.py --SupCheckPointPath {directory to supervised model ch
 
 ## Visualization & Performance
 
-![](./figures/vis.png)
+![](./figure/vis.png)
 
 
 | Model       | Training L2     | Validation L2    |  Test L2        |
