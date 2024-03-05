@@ -16,7 +16,7 @@ The right image shows an example of output from the network, which predicts the 
 |:--:| 
 | *Architecture* |
 
-The figure above show our architecture of the model. We use pre-trained VGG-19 to encode 2 patches of images, They are related by a homography produced by randomly perturbing the corner coordinates. Then concatenate the VGG backbone outputs and pass through 7 inception blocks, to extract spatial information. Last flatten the feature map and pass to fully-connected layers and produce the 1 by 8 vector which is an predicted x and y coordinate the corners.
+The figure above shows our architecture of the model. We use pre-trained VGG-19 to encode 2 patches of images. They are related by a homography produced by randomly perturbing the corner coordinates. Then concatenate the VGG backbone outputs and pass through 7 inception blocks, to extract spatial information. Last, flatten the feature map pass to fully connected layers and produce the 1 by 8 vector which is a predicted x and y coordinate of the corners.
 
 ## Training Detials
 
