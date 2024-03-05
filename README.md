@@ -4,6 +4,7 @@ This project was completed by Yi-Chung Chen, Ji Liu, and Shreyas Acharya. We dev
 ## Data
 
 ## Architecture
+![](./figure/architecture.png)
 
 ## Usage
 ### Train
@@ -31,7 +32,11 @@ python3 ./visualization.py --SupCheckPointPath {directory to supervised model ch
 
 ## Visualization & Performance
 
-![](./figure/vis.png)
+The example performances from the supervised and unsupervised training are shown below. The original crop regions are shown in the left column. The middle columns shows the output of the ***supervised*** model. The right column shows the output of the ***unsupervised*** model. In general, the supervised model seems to outperform the unsupervised model. 
+
+![](./figure/vis.jpeg)
+
+The quantitative results are summarized below. The error refers to the L2 distance between ground truth corner and predicted corner. 
 
 
 | Model       | Training L2     | Validation L2    |  Test L2        |
